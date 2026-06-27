@@ -10,8 +10,15 @@ export async function GET(
   { params }: { params: Promise<{ planId: string }> },
 ) {
   const { planId } = await params;
-  const plan = await getOrCreatePlan(planId);
-  return NextResponse.json(plan);
+  if (!planId) {
+    return NextResponse.json({ error: "missing planId" }, { status: 400 });
+  }
+  try {
+    const plan = await getOrCreatePlan(planId);
+    return NextResponse.json(plan);
+  } catch {
+    return NextResponse.json({ error: "failed to load plan" }, { status: 500 });
+  }
 }
 
 export async function PUT(
@@ -19,13 +26,33 @@ export async function PUT(
   { params }: { params: Promise<{ planId: string }> },
 ) {
   const { planId } = await params;
-  const body = (await req.json()) as PlanDoc;
+
+  let body: PlanDoc;
+  try {
+    body = (await req.json()) as PlanDoc;
+  } catch {
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "invalid body" }, { status: 400 });
+  }
   if (body.planId !== planId) {
     return NextResponse.json({ error: "planId mismatch" }, { status: 400 });
   }
-  const res = await getAdapter().put(body, body.version);
-  if (!res.ok) {
-    return NextResponse.json({ conflict: true, current: res.current }, { status: 409 });
+  if (typeof body.version !== "number") {
+    return NextResponse.json({ error: "missing version" }, { status: 400 });
   }
-  return NextResponse.json(res.doc);
+
+  try {
+    const res = await getAdapter().put(body, body.version);
+    if (!res.ok) {
+      return NextResponse.json(
+        { conflict: true, current: res.current },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(res.doc);
+  } catch {
+    return NextResponse.json({ error: "failed to save plan" }, { status: 500 });
+  }
 }

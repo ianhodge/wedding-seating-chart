@@ -21,7 +21,10 @@ export async function getOrCreatePlan(planId: string): Promise<PlanDoc> {
   if (existing) return existing;
   const seeded = buildSeedPlan(planId);
   const res = await store.put(seeded);
-  return res.ok ? res.doc : seeded;
+  if (res.ok) return res.doc;
+  // Lost a seeding race against a concurrent request; adopt what's stored.
+  const current = await store.get(planId);
+  return current ?? seeded;
 }
 
 export type { StorageAdapter, PutResult } from "./types";
