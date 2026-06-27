@@ -64,20 +64,30 @@ export function buildSeedPlan(planId: string): PlanDoc {
     ? parties.find((p) => p.groupId === coupleGroup.id)
     : undefined;
 
-  // Default scenario: only the couple is pre-seated (at the sweetheart table).
-  const assignments: Scenario["assignments"] = {};
-  if (sweetheart && coupleParty) {
-    assignments[coupleParty.id] = { tableId: sweetheart.id, locked: true };
-  }
+  // Two starting drafts — one for each of us — both pre-seating the couple at
+  // the sweetheart table (locked). Consolidate later via the compare view.
+  const coupleAssignment: Scenario["assignments"] =
+    sweetheart && coupleParty
+      ? { [coupleParty.id]: { tableId: sweetheart.id, locked: true } }
+      : {};
 
   const now = Date.now();
-  const scenario: Scenario = {
-    id: "draft-1",
-    name: "Draft 1",
-    assignments,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const scenarios: Scenario[] = [
+    {
+      id: "matt-draft",
+      name: "Matt's Draft",
+      assignments: { ...coupleAssignment },
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "ian-draft",
+      name: "Ian's Draft",
+      assignments: { ...coupleAssignment },
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
 
   return {
     planId,
@@ -90,8 +100,8 @@ export function buildSeedPlan(planId: string): PlanDoc {
     subgroups: [] as Subgroup[],
     tables,
     features: DEFAULT_FEATURES,
-    scenarios: [scenario],
-    activeScenarioId: scenario.id,
+    scenarios,
+    activeScenarioId: "matt-draft",
     updatedAt: now,
   };
 }

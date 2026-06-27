@@ -12,12 +12,22 @@ describe("seed plan", () => {
     expect(plan.guests.length).toBe(201);
   });
 
-  it("seats the couple at the sweetheart table (locked)", () => {
+  it("starts with Matt's and Ian's drafts", () => {
+    expect(plan.scenarios.map((s) => s.name)).toEqual([
+      "Matt's Draft",
+      "Ian's Draft",
+    ]);
+    expect(plan.activeScenarioId).toBe("matt-draft");
+  });
+
+  it("seats the couple at the sweetheart table (locked) in every draft", () => {
     const couple = plan.groups.find((g) => g.isCouple)!;
     const party = plan.parties.find((p) => p.groupId === couple.id)!;
-    const assignment = plan.scenarios[0].assignments[party.id];
-    expect(assignment?.tableId).toBe("sweetheart");
-    expect(assignment?.locked).toBe(true);
+    for (const s of plan.scenarios) {
+      const a = s.assignments[party.id];
+      expect(a?.tableId).toBe("sweetheart");
+      expect(a?.locked).toBe(true);
+    }
   });
 
   it("has 45 people across the placeholder groups", () => {
