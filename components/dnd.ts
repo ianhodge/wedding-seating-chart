@@ -3,6 +3,12 @@
 /** Droppable id for the "unassigned" tray in the sidebar. */
 export const TRAY_ID = "__tray__";
 
+/** Drag id prefix for dragging a whole subgroup as a single unit. */
+export const SUBGROUP_PREFIX = "subgroup:";
+export const subgroupDragId = (id: string) => `${SUBGROUP_PREFIX}${id}`;
+export const parseSubgroupDragId = (dragId: string): string | null =>
+  dragId.startsWith(SUBGROUP_PREFIX) ? dragId.slice(SUBGROUP_PREFIX.length) : null;
+
 /** Light/dark readable text color for a given hex background. */
 export function readableText(hex: string): string {
   const h = hex.replace("#", "");

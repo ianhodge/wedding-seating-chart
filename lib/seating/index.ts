@@ -14,8 +14,8 @@ export interface AutoFillOptions {
   respectLocked?: boolean;
   /** Keep already-placed (unlocked) parties (default true). If false, reflow all non-locked. */
   keepExisting?: boolean;
-  /** Also auto-seat placeholder groups (default false — the mother-in-law handles those). */
-  fillPlaceholders?: boolean;
+  /** Seed for the shuffle, so each run can produce a different valid arrangement. */
+  seed?: number;
 }
 
 export interface AutoFillResult {
@@ -27,6 +27,26 @@ export interface AutoFillResult {
 }
 
 const sizeOf = (parties: Party[]) => parties.reduce((s, p) => s + p.size, 0);
+
+/** Small seeded PRNG so auto-fill can vary while staying reproducible per seed. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle<T>(arr: readonly T[], rng: () => number): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 /** Deterministic ordering of parties: largest first, ties broken by id. */
 const bySizeDescThenId = (a: Party, b: Party) =>
@@ -90,16 +110,12 @@ export function splitDownMiddle(parties: Party[]): [Party[], Party[]] {
 }
 
 /**
- * Greedy, deterministic auto-fill.
- *
- * Keeps locked/existing placements, then seats each group (or each of its
- * subgroups) as a unit. A unit is placed whole when it fits a single table;
- * otherwise it is split DOWN THE MIDDLE into balanced halves (parties intact)
- * and each half is seated recursively until every chunk fits. Constraints:
- * the sweetheart table is never used; placeholder groups only sit at their
- * reserved tables (and only when `fillPlaceholders`); non-placeholder groups
- * avoid reserved tables. When a unit is split, the chunks prefer tables that
- * already host the group and tables near each other (x/y proximity).
+ * Greedy auto-fill. Keeps locked/existing placements, then seats every
+ * non-couple group (or each of its subgroups) as a unit: placed whole when it
+ * fits one table, otherwise split DOWN THE MIDDLE into balanced halves (parties
+ * intact) recursively. The sweetheart table is never used. Group order is
+ * shuffled from `options.seed` so each run can yield a different arrangement;
+ * a final pass rescues any stranded party into any remaining open seat.
  */
 export function autoFill(
   doc: PlanDoc,
@@ -108,14 +124,13 @@ export function autoFill(
 ): AutoFillResult {
   const respectLocked = options.respectLocked ?? true;
   const keepExisting = options.keepExisting ?? true;
-  const fillPlaceholders = options.fillPlaceholders ?? false;
+  const rng = mulberry32(options.seed ?? 0);
 
   const scenario = doc.scenarios.find((s) => s.id === scenarioId);
   const warnings: string[] = [];
   const unseated: PartyId[] = [];
 
   const partyById = new Map(doc.parties.map((p) => [p.id, p]));
-  const groupById = new Map(doc.groups.map((g) => [g.id, g]));
   const tableById = new Map(doc.tables.map((t) => [t.id, t]));
 
   // 1) Seed the result from existing assignments we want to preserve.
@@ -145,16 +160,8 @@ export function autoFill(
 
   const remaining = (t: Table) => t.capacity - (occ.get(t.id) ?? 0);
 
-  const canPlace = (t: Table, groupId: GroupId): boolean => {
-    if (t.isSweetheart) return false;
-    const g = groupById.get(groupId);
-    if (!g) return false;
-    if (g.isPlaceholder) return t.reservedForGroupId === groupId;
-    return !t.reservedForGroupId; // non-placeholders avoid reserved tables
-  };
-
-  const candidateTables = (groupId: GroupId) =>
-    doc.tables.filter((t) => canPlace(t, groupId));
+  // Any non-sweetheart table can host any group (reservations removed).
+  const candidateTables = () => doc.tables.filter((t) => !t.isSweetheart);
 
   // Distance from a table to the centroid of tables already used by a unit.
   const distanceToUsed = (t: Table, used: Set<TableId>): number => {
@@ -217,7 +224,7 @@ export function autoFill(
     if (unit.length === 0) return;
     const unitSize = sizeOf(unit);
 
-    const fitting = candidateTables(groupId).filter((t) => remaining(t) >= unitSize);
+    const fitting = candidateTables().filter((t) => remaining(t) >= unitSize);
     const table = chooseTable(fitting, groupId, used);
     if (table) {
       for (const p of unit) place(p, table);
@@ -242,33 +249,36 @@ export function autoFill(
     seatUnit(right, groupId, used);
   };
 
-  // 3) Seat groups in a stable order, treating each subgroup as its own unit.
-  const orderedGroups = [...doc.groups].sort(
-    (a, b) => a.order - b.order || a.id.localeCompare(b.id),
+  // 3) Seat every non-couple group (placeholders included) in a shuffled order
+  //    so each seed yields a different arrangement. Each subgroup is a unit.
+  const seatableGroups = shuffle(
+    doc.groups.filter((g) => !g.isCouple),
+    rng,
   );
-  for (const g of orderedGroups) {
-    if (g.isCouple) continue;
-    if (g.isPlaceholder && !fillPlaceholders) continue;
-
+  for (const g of seatableGroups) {
     const groupParties = doc.parties.filter(
       (p) => p.groupId === g.id && assignments[p.id] === undefined,
     );
     if (groupParties.length === 0) continue;
 
-    const subgroups = doc.subgroups
-      .filter((s) => s.groupId === g.id)
-      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-
     const units: Party[][] = [];
-    if (subgroups.length > 0) {
-      for (const s of subgroups) {
-        const sp = groupParties.filter((p) => p.subgroupId === s.id);
-        if (sp.length) units.push(sp);
-      }
-      const noSub = groupParties.filter((p) => !p.subgroupId);
-      if (noSub.length) units.push(noSub);
+    if (g.keepTogether === false) {
+      // This group needn't sit together — seat each party independently.
+      for (const p of groupParties) units.push([p]);
     } else {
-      units.push(groupParties);
+      const subgroups = doc.subgroups
+        .filter((s) => s.groupId === g.id)
+        .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+      if (subgroups.length > 0) {
+        for (const s of subgroups) {
+          const sp = groupParties.filter((p) => p.subgroupId === s.id);
+          if (sp.length) units.push(sp);
+        }
+        const noSub = groupParties.filter((p) => !p.subgroupId);
+        if (noSub.length) units.push(noSub);
+      } else {
+        units.push(groupParties);
+      }
     }
 
     // A shared "used" set per group keeps its subgroups clustered together.
@@ -280,15 +290,21 @@ export function autoFill(
   //    has room (relaxing group cohesion), so we never leave a party out when
   //    seats genuinely exist. Reserved/sweetheart constraints still apply.
   if (unseated.length > 0) {
-    const stranded = [...unseated];
+    // Best-fit decreasing: place the biggest stranded parties first into the
+    // tightest gap that still fits, to waste as few seats as possible.
+    const stranded = [...unseated].sort(
+      (a, b) =>
+        (partyById.get(b)?.size ?? 0) - (partyById.get(a)?.size ?? 0) ||
+        a.localeCompare(b),
+    );
     unseated.length = 0;
     for (const pid of stranded) {
       const party = partyById.get(pid);
       if (!party) continue;
-      const table = candidateTables(party.groupId)
+      const tbl = candidateTables()
         .filter((t) => remaining(t) >= party.size)
-        .sort((a, b) => remaining(b) - remaining(a) || a.id.localeCompare(b.id))[0];
-      if (table) place(party, table);
+        .sort((a, b) => remaining(a) - remaining(b) || a.id.localeCompare(b.id))[0];
+      if (tbl) place(party, tbl);
       else unseated.push(pid);
     }
   }

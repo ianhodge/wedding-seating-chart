@@ -26,6 +26,7 @@ export function buildSeedPlan(planId: string): PlanDoc {
       color: colorForIndex(gi),
       isPlaceholder: !!rg.isPlaceholder,
       isCouple: !!rg.isCouple,
+      keepTogether: rg.keepTogether ?? true,
       order: gi,
     });
 

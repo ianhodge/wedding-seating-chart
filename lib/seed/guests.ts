@@ -6,6 +6,7 @@ export interface RawGroup {
   name: string;
   isPlaceholder?: boolean; // seated by the mother-in-law
   isCouple?: boolean; // Matt + Ian -> sweetheart table
+  keepTogether?: boolean; // default true; false = parties may scatter
   parties: string[][];
 }
 
@@ -129,7 +130,8 @@ export const RAW_GROUPS: RawGroup[] = [
       ["Emma Magid", "Ryan Pinch"],
       ["Karen Magid"],
       ["Leslie Magid Higgins", "Pete Higgins"],
-      ["Andrew Higgins", "Freddie Higgins", "Tara Higgins", "Angie Balczarekova"],
+      ["Andrew Higgins", "Tara Higgins"],
+      ["Freddie Higgins", "Angie Balczarekova"],
       ["Hilari Cohen", "Ken Cohen"],
     ],
   },
@@ -171,6 +173,7 @@ export const RAW_GROUPS: RawGroup[] = [
   },
   {
     name: "Other",
+    keepTogether: false,
     parties: [
       ["Vamsi Damerla", "Min Zhong"],
       ["Jill Patton", "Ben Patton"],

@@ -8,19 +8,15 @@ import { Table, VenueFeature } from "@/lib/types";
 //   12-seat (long): 12, 13, 17, 18
 //   16-seat (long): 3, 7, 8
 // Total = 200 seats (+ the 2-seat sweetheart table).
-//
-// Placeholder reservations (movable in-app):
-//   Higgins Family Friends -> Table 17 ; Higgins Side -> Table 18
-//   Pete + Les Friends     -> Table 3 (+ Table 6)
 
 export const DEFAULT_TABLES: Table[] = [
   // Top row
   { id: "t20", label: "Table 20", shape: "round", capacity: 8, x: 47, y: 11 },
   { id: "t19", label: "Table 19", shape: "round", capacity: 8, x: 58, y: 9 },
 
-  // Long 12-tops up top (in-law reserved)
-  { id: "t17", label: "Table 17", shape: "long", capacity: 12, x: 39, y: 18, reservedForGroupId: "higgins-family-friends" },
-  { id: "t18", label: "Table 18", shape: "long", capacity: 12, x: 58, y: 17, reservedForGroupId: "higgins-side" },
+  // Long 12-tops up top
+  { id: "t17", label: "Table 17", shape: "long", capacity: 12, x: 39, y: 18 },
+  { id: "t18", label: "Table 18", shape: "long", capacity: 12, x: 58, y: 17 },
 
   // Third row
   { id: "t16", label: "Table 16", shape: "round", capacity: 8, x: 40, y: 27 },
@@ -46,10 +42,10 @@ export const DEFAULT_TABLES: Table[] = [
   // Lower round tables
   { id: "t4", label: "Table 4", shape: "round", capacity: 8, x: 55, y: 73 },
   { id: "t5", label: "Table 5", shape: "round", capacity: 8, x: 67, y: 73 },
-  { id: "t6", label: "Table 6", shape: "round", capacity: 8, x: 80, y: 72, reservedForGroupId: "pete-les-friends" },
+  { id: "t6", label: "Table 6", shape: "round", capacity: 8, x: 80, y: 72 },
 
-  // Long 16-top (bottom, in-law reserved)
-  { id: "t3", label: "Table 3", shape: "long", capacity: 16, x: 72, y: 81, reservedForGroupId: "pete-les-friends" },
+  // Long 16-top (bottom)
+  { id: "t3", label: "Table 3", shape: "long", capacity: 16, x: 72, y: 81 },
 
   // Bottom row
   { id: "t1", label: "Table 1", shape: "round", capacity: 8, x: 69, y: 90 },

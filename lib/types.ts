@@ -38,9 +38,11 @@ export interface Party {
 export interface Group {
   id: GroupId;
   name: string;
-  color: string; // hex, for color-coding
+  color: string;
   isPlaceholder: boolean; // managed by the mother-in-law
   isCouple: boolean; // Matt + Ian (the sweetheart table)
+  /** Whether auto-fill should keep this group together (default true). */
+  keepTogether?: boolean;
   order: number;
 }
 

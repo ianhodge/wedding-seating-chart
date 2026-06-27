@@ -14,7 +14,7 @@ import {
 import { usePlan } from "@/lib/client/usePlan";
 import { assignParty, unassignParty } from "@/lib/plan/ops";
 import { PlanProvider, usePlanCtx } from "@/components/PlanContext";
-import { TRAY_ID } from "@/components/dnd";
+import { TRAY_ID, parseSubgroupDragId } from "@/components/dnd";
 import Header from "@/components/Header";
 import Toolbar from "@/components/Toolbar";
 import Sidebar from "@/components/Sidebar";
@@ -84,6 +84,51 @@ function Board() {
   const activeParty = activeId
     ? plan.parties.find((p) => p.id === activeId)
     : undefined;
+  const activeSubgroupId = activeId ? parseSubgroupDragId(activeId) : null;
+  const activeSubgroup = activeSubgroupId
+    ? plan.subgroups.find((s) => s.id === activeSubgroupId)
+    : undefined;
+
+  function moveSubgroup(sgId: string, overId: string) {
+    const parties = plan.parties.filter((p) => p.subgroupId === sgId);
+    const movable = parties.filter((p) => !scenario.assignments[p.id]?.locked);
+    if (movable.length === 0) {
+      toast("Those seats are locked \uD83D\uDD12", "warn");
+      return;
+    }
+    if (overId === TRAY_ID) {
+      let next = plan;
+      for (const p of movable) next = unassignParty(next, p.id);
+      commit(next);
+      toast("Subgroup sent back to the tray \uD83E\uDE91", "info");
+      return;
+    }
+    const table = tableById.get(overId);
+    if (!table) return;
+    if (table.isSweetheart) {
+      toast("The sweetheart table is just for the lovebirds \uD83D\uDC95", "warn");
+      return;
+    }
+    const incoming = movable.filter(
+      (p) => scenario.assignments[p.id]?.tableId !== table.id,
+    );
+    const needed = incoming.reduce((s, p) => s + p.size, 0);
+    const free = table.capacity - (occupancy[table.id] || 0);
+    if (needed > free) {
+      toast(
+        `${table.label} can't fit the whole subgroup \u2014 needs ${needed}, only ${Math.max(
+          0,
+          free,
+        )} free.`,
+        "warn",
+      );
+      return;
+    }
+    let next = plan;
+    for (const p of movable) next = assignParty(next, p.id, table.id);
+    commit(next);
+    toast("Seated the whole subgroup together \uD83C\uDF89", "love");
+  }
 
   function onDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id));
@@ -95,6 +140,12 @@ function Board() {
     const over = e.over;
     if (!over) return;
     const overId = String(over.id);
+
+    const sgId = parseSubgroupDragId(partyId);
+    if (sgId) {
+      moveSubgroup(sgId, overId);
+      return;
+    }
 
     if (overId === TRAY_ID) {
       const cur = scenario.assignments[partyId];
@@ -130,15 +181,6 @@ function Board() {
         "warn",
       );
       return;
-    }
-
-    if (table.reservedForGroupId && table.reservedForGroupId !== party.groupId) {
-      const rname =
-        groupById.get(table.reservedForGroupId)?.name ?? "an in-law group";
-      toast(
-        `Heads up: ${table.label} is reserved for ${rname} — seating anyway.`,
-        "warn",
-      );
     }
 
     commit(assignParty(plan, partyId, table.id));
@@ -201,6 +243,10 @@ function Board() {
             <span className="rounded-full bg-blush/60 px-1.5 text-[11px] font-semibold text-rose">
               {activeParty.size}
             </span>
+          </div>
+        ) : activeSubgroup ? (
+          <div className="rounded-xl border-2 border-plum bg-white px-3 py-1.5 text-sm font-semibold text-plum shadow-lg">
+            ✂️ {activeSubgroup.name}
           </div>
         ) : null}
       </DragOverlay>

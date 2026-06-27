@@ -1,11 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { Group } from "@/lib/types";
 import { usePlanCtx } from "./PlanContext";
 import PartyCard from "./PartyCard";
-import { TRAY_ID } from "./dnd";
+import { TRAY_ID, subgroupDragId } from "./dnd";
+
+/** A draggable header that lets you seat a whole finalized subgroup at once. */
+function SubgroupHeader({
+  id,
+  name,
+  size,
+}: {
+  id: string;
+  name: string;
+  size: number;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: subgroupDragId(id),
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      title="Drag to seat this whole subgroup at a table"
+      className={`flex cursor-grab items-center gap-1 rounded px-0.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide opacity-70 hover:bg-blush/40 active:cursor-grabbing ${
+        isDragging ? "opacity-40" : ""
+      }`}
+    >
+      <span aria-hidden>⠿</span>
+      <span className="truncate">{name}</span>
+      <span className="ml-auto rounded-full bg-blush/60 px-1.5 text-[10px] text-rose">
+        {size}
+      </span>
+    </div>
+  );
+}
 
 export default function Sidebar({
   onOpenSubgroups,
@@ -170,9 +202,11 @@ function GroupSection({
                 if (sgParties.length === 0) return null;
                 return (
                   <div key={sg.id}>
-                    <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide opacity-60">
-                      {sg.name}
-                    </p>
+                    <SubgroupHeader
+                      id={sg.id}
+                      name={sg.name}
+                      size={sgParties.reduce((s, p) => s + p.size, 0)}
+                    />
                     <div className="mt-1 grid gap-1.5">
                       {sgParties.map((p) => (
                         <PartyCard key={p.id} party={p} compact />

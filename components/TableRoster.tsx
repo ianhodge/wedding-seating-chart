@@ -28,9 +28,6 @@ export default function TableRoster() {
             (p) => scenario.assignments[p.id]?.tableId === t.id,
           );
           const used = occupancy[t.id] || 0;
-          const reserved = t.reservedForGroupId
-            ? groupById.get(t.reservedForGroupId)
-            : null;
           return (
             <div
               key={t.id}
@@ -44,11 +41,6 @@ export default function TableRoster() {
                   {used}/{t.capacity}
                 </span>
               </div>
-              {reserved && (
-                <p className="text-[11px] italic text-amber-800">
-                  Reserved for {reserved.name}
-                </p>
-              )}
               {parties.length === 0 ? (
                 <p className="mt-1 text-xs italic opacity-50">— empty —</p>
               ) : (

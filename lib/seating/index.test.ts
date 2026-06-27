@@ -204,41 +204,17 @@ describe("autoFill", () => {
     expect(occ["b"]).toBe(6);
   });
 
-  it("only seats placeholder groups at their reserved tables, and only when fillPlaceholders", () => {
+  it("seats placeholder groups like any other group (reservations removed)", () => {
     const ph = group("ph", { isPlaceholder: true });
     const p = party("ph", 4, { id: "php" });
     const d = doc({
       groups: [ph],
       parties: [p],
-      tables: [
-        table("open", 8),
-        table("reserved", 8, { reservedForGroupId: "ph" }),
-      ],
+      tables: [table("open", 8)],
     });
-
-    // Default: placeholders are skipped entirely.
-    const skipped = autoFill(d, "s1");
-    expect(skipped.assignments["php"]).toBeUndefined();
-    expect(skipped.unseated).toEqual([]);
-
-    // With fillPlaceholders: seated only at the reserved table.
-    const filled = autoFill(d, "s1", { fillPlaceholders: true });
-    expect(filled.assignments["php"].tableId).toBe("reserved");
-  });
-
-  it("keeps non-placeholder groups off reserved tables", () => {
-    const g = group("g");
-    const p = party("g", 4, { id: "p" });
-    const d = doc({
-      groups: [g],
-      parties: [p],
-      tables: [
-        table("reserved", 8, { reservedForGroupId: "someoneElse" }),
-        table("open", 8),
-      ],
-    });
-    const { assignments } = autoFill(d, "s1");
-    expect(assignments["p"].tableId).toBe("open");
+    const { assignments, unseated } = autoFill(d, "s1");
+    expect(unseated).toEqual([]);
+    expect(assignments["php"].tableId).toBe("open");
   });
 
   it("never seats anyone at the sweetheart table", () => {
@@ -387,9 +363,9 @@ describe("autoFill on the seed plan", () => {
     expect(atSweetheart).toEqual(coupleParty ? [coupleParty.id] : []);
   });
 
-  it("never exceeds any table's capacity and is deterministic", () => {
-    const r1 = autoFill(plan, "matt-draft", { fillPlaceholders: true });
-    const r2 = autoFill(plan, "matt-draft", { fillPlaceholders: true });
+  it("never exceeds any table's capacity and is deterministic for a fixed seed", () => {
+    const r1 = autoFill(plan, "matt-draft");
+    const r2 = autoFill(plan, "matt-draft");
     expect(r1).toEqual(r2);
 
     const occ = occupancy(plan, r1.assignments);
@@ -398,18 +374,14 @@ describe("autoFill on the seed plan", () => {
     }
   });
 
-  it("seats placeholder groups only at their reserved tables when filling them", () => {
-    const { assignments } = autoFill(plan, "matt-draft", { fillPlaceholders: true });
+  it("seats placeholder groups too (they're no longer skipped)", () => {
+    const { assignments } = autoFill(plan, "matt-draft");
     const placeholderIds = new Set(
       plan.groups.filter((g) => g.isPlaceholder).map((g) => g.id),
     );
-    const tableById = new Map(plan.tables.map((t) => [t.id, t]));
-    for (const p of plan.parties) {
-      if (!placeholderIds.has(p.groupId)) continue;
-      const a = assignments[p.id];
-      if (!a) continue; // ok if it couldn't be seated
-      const t = tableById.get(a.tableId);
-      expect(t?.reservedForGroupId).toBe(p.groupId);
-    }
+    const seatedPlaceholder = plan.parties.some(
+      (p) => placeholderIds.has(p.groupId) && assignments[p.id],
+    );
+    expect(seatedPlaceholder).toBe(true);
   });
 });

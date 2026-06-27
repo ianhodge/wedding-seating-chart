@@ -27,7 +27,9 @@ export default function Toolbar() {
   async function onAutoFill() {
     setBusy(true);
     try {
-      const res = autoFill(plan, scenario.id);
+      const res = autoFill(plan, scenario.id, {
+        seed: Math.floor(Math.random() * 2 ** 31),
+      });
       await commit(applyAssignments(plan, res.assignments, scenario.id));
       const confetti = (await import("canvas-confetti")).default;
       confetti({ particleCount: 160, spread: 85, origin: { y: 0.6 } });

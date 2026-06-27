@@ -45,9 +45,6 @@ export default function TableNode({
   const partiesHere = plan.parties.filter(
     (p) => scenario.assignments[p.id]?.tableId === table.id,
   );
-  const reservedGroup = table.reservedForGroupId
-    ? groupById.get(table.reservedForGroupId)
-    : null;
 
   // Seated guests (first names, in party order) shown around the table.
   const seatPeople = partiesHere.flatMap((p) => {
@@ -141,13 +138,6 @@ export default function TableNode({
         }`}
         style={{ width: w, height: h, borderRadius: radius, background: bg }}
       >
-        {reservedGroup && (
-          <span
-            className="absolute -top-1 -right-1 h-3 w-3 rounded-full border border-white"
-            style={{ backgroundColor: reservedGroup.color }}
-            title={`Reserved for ${reservedGroup.name}`}
-          />
-        )}
         <span
           className={`text-[10px] font-bold leading-none ${
             table.isSweetheart ? "text-white" : "text-foreground"

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { VenueFeature } from "@/lib/types";
 import { usePlanCtx } from "./PlanContext";
-import { setTableReservation } from "@/lib/plan/ops";
 import TableNode from "./TableNode";
 import PartyCard from "./PartyCard";
 import SeatMap, { type SeatPerson } from "./SeatMap";
@@ -31,7 +30,7 @@ export default function FloorPlan() {
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold">🗺️ Floor plan</h2>
         <span className="text-xs italic opacity-60">
-          Tap a table to seat guests, view seating, or set a reservation
+          Tap a table to see who&apos;s seated there
         </span>
       </div>
       <div className="overflow-x-auto rounded-2xl border-2 border-rose/20 bg-white/70 p-4 shadow-inner">
@@ -89,7 +88,7 @@ function TableDetails({
   tableId: string;
   onClose: () => void;
 }) {
-  const { plan, scenario, groupById, occupancy, commit } = usePlanCtx();
+  const { plan, scenario, groupById, occupancy } = usePlanCtx();
   const table = plan.tables.find((t) => t.id === tableId);
   if (!table) return null;
 
@@ -97,10 +96,6 @@ function TableDetails({
     (p) => scenario.assignments[p.id]?.tableId === table.id,
   );
   const used = occupancy[table.id] || 0;
-  const reservedGroup = table.reservedForGroupId
-    ? groupById.get(table.reservedForGroupId)
-    : null;
-  const placeholderGroups = plan.groups.filter((g) => g.isPlaceholder);
 
   const people: SeatPerson[] = partiesHere.flatMap((p) => {
     const color = groupById.get(p.groupId)?.color ?? "#e6549b";
@@ -129,40 +124,6 @@ function TableDetails({
           Close
         </button>
       </div>
-
-      {!table.isSweetheart && (
-        <div className="mt-3 rounded-xl border-2 border-gold/50 bg-gold/10 p-3">
-          <label
-            htmlFor={`reservation-${table.id}`}
-            className="flex flex-wrap items-center gap-2 text-sm"
-          >
-            <span className="font-semibold">🎟️ Reserve this table for:</span>
-            <select
-              id={`reservation-${table.id}`}
-              name="reservation"
-              aria-label="Reserve this table for an in-law group"
-              value={table.reservedForGroupId ?? ""}
-              onChange={(e) =>
-                commit(
-                  setTableReservation(plan, table.id, e.target.value || null),
-                )
-              }
-              className="rounded-full border-2 border-rose/40 bg-white px-3 py-1 text-sm"
-            >
-              <option value="">No reservation</option>
-              {placeholderGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="mt-1 text-xs italic opacity-70">
-            Reservations hold a whole table for an in-law-managed group to fill
-            later.{reservedGroup ? ` Currently held for ${reservedGroup.name}.` : ""}
-          </p>
-        </div>
-      )}
 
       {partiesHere.length > 0 && (
         <div className="mt-4 overflow-x-auto rounded-xl border border-rose/15 bg-white/60 p-3">
