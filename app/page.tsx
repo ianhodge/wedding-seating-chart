@@ -20,6 +20,7 @@ import Toolbar from "@/components/Toolbar";
 import Sidebar from "@/components/Sidebar";
 import FloorPlan from "@/components/FloorPlan";
 import Legend from "@/components/Legend";
+import TableRoster from "@/components/TableRoster";
 import DraftBar from "@/components/DraftBar";
 import SubgroupDialog from "@/components/SubgroupDialog";
 import GuestDialog from "@/components/GuestDialog";
@@ -171,6 +172,7 @@ function Board() {
           <div className="space-y-4">
             <FloorPlan />
             <Legend />
+            <TableRoster />
           </div>
         </div>
 

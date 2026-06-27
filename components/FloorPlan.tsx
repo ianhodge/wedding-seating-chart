@@ -21,15 +21,28 @@ const FEATURE_STYLE: Record<
 export default function FloorPlan() {
   const { plan } = usePlanCtx();
   const [selected, setSelected] = useState<string | null>(null);
+  const [showNames, setShowNames] = useState(false);
 
   const tables = plan.tables;
   const features = plan.features;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-2xl border-2 border-rose/20 bg-white/70 p-2 shadow-inner">
+      <div className="flex items-center justify-between">
+        <h2 className="font-serif text-xl font-semibold">🗺️ Floor plan</h2>
+        <label className="flex cursor-pointer select-none items-center gap-1.5 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={showNames}
+            onChange={(e) => setShowNames(e.target.checked)}
+            className="accent-rose"
+          />
+          Show names
+        </label>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border-2 border-rose/20 bg-white/70 p-2 pb-8 shadow-inner">
         <div
-          className="relative mx-auto aspect-[4/3] w-full min-w-[620px]"
+          className="relative mx-auto aspect-[1/1] w-full min-w-[760px]"
           style={{
             background:
               "repeating-linear-gradient(45deg, #fff 0 18px, #fff7fb 18px 36px)",
@@ -62,6 +75,7 @@ export default function FloorPlan() {
               key={t.id}
               table={t}
               selected={selected === t.id}
+              showNames={showNames}
               onSelect={(id) => setSelected((cur) => (cur === id ? null : id))}
             />
           ))}

@@ -33,7 +33,7 @@ export default function Header({ coupleName }: { coupleName: string }) {
           {coupleName}
         </h1>
         <p className="font-serif text-base italic opacity-80 sm:text-lg">
-          💍 The Totally Over-the-Top Seating Extravaganza 💍
+          💕 Pick a seat, not a side 💕
         </p>
         <button
           onClick={onShare}

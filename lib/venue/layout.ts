@@ -14,39 +14,51 @@ import { Table, VenueFeature } from "@/lib/types";
 //   Pete + Les Friends     -> Table 3 (+ Table 6)
 
 export const DEFAULT_TABLES: Table[] = [
-  { id: "t20", label: "Table 20", shape: "round", capacity: 8, x: 40, y: 10 },
-  { id: "t19", label: "Table 19", shape: "round", capacity: 8, x: 52, y: 10 },
+  // Top row
+  { id: "t20", label: "Table 20", shape: "round", capacity: 8, x: 47, y: 11 },
+  { id: "t19", label: "Table 19", shape: "round", capacity: 8, x: 58, y: 9 },
 
-  { id: "t17", label: "Table 17", shape: "long", capacity: 12, x: 28, y: 20, reservedForGroupId: "higgins-family-friends" },
-  { id: "t18", label: "Table 18", shape: "round", capacity: 12, x: 45, y: 21, reservedForGroupId: "higgins-side" },
-  { id: "t14", label: "Table 14", shape: "round", capacity: 12, x: 64, y: 18 },
+  // Long 12-tops up top (in-law reserved)
+  { id: "t17", label: "Table 17", shape: "long", capacity: 12, x: 39, y: 18, reservedForGroupId: "higgins-family-friends" },
+  { id: "t18", label: "Table 18", shape: "long", capacity: 12, x: 58, y: 17, reservedForGroupId: "higgins-side" },
 
-  { id: "t16", label: "Table 16", shape: "round", capacity: 8, x: 28, y: 33 },
-  { id: "t15", label: "Table 15", shape: "round", capacity: 8, x: 45, y: 33 },
-  { id: "t13", label: "Table 13", shape: "long", capacity: 12, x: 66, y: 31 },
+  // Third row
+  { id: "t16", label: "Table 16", shape: "round", capacity: 8, x: 40, y: 27 },
+  { id: "t15", label: "Table 15", shape: "round", capacity: 8, x: 53, y: 26 },
+  { id: "t14", label: "Table 14", shape: "round", capacity: 12, x: 68, y: 25 },
 
-  { id: "sweetheart", label: "Sweetheart", shape: "sweetheart", capacity: 2, x: 54, y: 45, isSweetheart: true },
-  { id: "t12", label: "Table 12", shape: "long", capacity: 12, x: 76, y: 42 },
+  // Long 12-tops just right of the dance floor (13 above 12)
+  { id: "t13", label: "Table 13", shape: "long", capacity: 12, x: 66, y: 36 },
+  { id: "t12", label: "Table 12", shape: "long", capacity: 12, x: 66, y: 46 },
 
+  // Mid round tables
+  { id: "t9", label: "Table 9", shape: "round", capacity: 8, x: 43, y: 57 },
+  { id: "t10", label: "Table 10", shape: "round", capacity: 8, x: 57, y: 57 },
   { id: "t11", label: "Table 11", shape: "round", capacity: 12, x: 76, y: 56 },
-  { id: "t9", label: "Table 9", shape: "round", capacity: 8, x: 44, y: 64 },
-  { id: "t10", label: "Table 10", shape: "round", capacity: 8, x: 56, y: 64 },
-  { id: "t8", label: "Table 8", shape: "long", capacity: 16, x: 24, y: 58 },
 
-  { id: "t7", label: "Table 7", shape: "long", capacity: 16, x: 24, y: 71 },
-  { id: "t3", label: "Table 3", shape: "long", capacity: 16, x: 78, y: 70, reservedForGroupId: "pete-les-friends" },
+  // Honeymoon (sweetheart) table — all the way to the right
+  { id: "sweetheart", label: "Sweetheart", shape: "sweetheart", capacity: 2, x: 89, y: 42, isSweetheart: true },
 
-  { id: "t4", label: "Table 4", shape: "round", capacity: 8, x: 40, y: 80 },
-  { id: "t5", label: "Table 5", shape: "round", capacity: 8, x: 53, y: 80 },
-  { id: "t6", label: "Table 6", shape: "round", capacity: 8, x: 66, y: 82, reservedForGroupId: "pete-les-friends" },
+  // Long 16-tops (middle row)
+  { id: "t8", label: "Table 8", shape: "long", capacity: 16, x: 43, y: 66 },
+  { id: "t7", label: "Table 7", shape: "long", capacity: 16, x: 64, y: 66 },
 
-  { id: "t1", label: "Table 1", shape: "round", capacity: 8, x: 45, y: 92 },
-  { id: "t2", label: "Table 2", shape: "round", capacity: 8, x: 58, y: 92 },
+  // Lower round tables
+  { id: "t4", label: "Table 4", shape: "round", capacity: 8, x: 55, y: 73 },
+  { id: "t5", label: "Table 5", shape: "round", capacity: 8, x: 67, y: 73 },
+  { id: "t6", label: "Table 6", shape: "round", capacity: 8, x: 80, y: 72, reservedForGroupId: "pete-les-friends" },
+
+  // Long 16-top (bottom, in-law reserved)
+  { id: "t3", label: "Table 3", shape: "long", capacity: 16, x: 72, y: 81, reservedForGroupId: "pete-les-friends" },
+
+  // Bottom row
+  { id: "t1", label: "Table 1", shape: "round", capacity: 8, x: 69, y: 90 },
+  { id: "t2", label: "Table 2", shape: "round", capacity: 8, x: 82, y: 89 },
 ];
 
 export const DEFAULT_FEATURES: VenueFeature[] = [
-  { id: "bar", label: "Bar", kind: "bar", x: 4, y: 6, w: 14, h: 6 },
-  { id: "band", label: "Band", kind: "band", x: 6, y: 40, w: 12, h: 14 },
-  { id: "dance", label: "Dance Floor", kind: "danceFloor", x: 30, y: 44, w: 16, h: 16 },
-  { id: "restrooms", label: "Restrooms", kind: "restrooms", x: 4, y: 72, w: 14, h: 7 },
+  { id: "bar", label: "Bar", kind: "bar", x: 3, y: 4, w: 12, h: 5 },
+  { id: "band", label: "Band", kind: "band", x: 16, y: 33, w: 15, h: 20 },
+  { id: "dance", label: "Dance Floor", kind: "danceFloor", x: 35, y: 31, w: 23, h: 22 },
+  { id: "restrooms", label: "Restrooms", kind: "restrooms", x: 4, y: 60, w: 16, h: 8 },
 ];

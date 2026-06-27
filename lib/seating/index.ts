@@ -276,6 +276,23 @@ export function autoFill(
     for (const unit of units) seatUnit(unit, g.id, used);
   }
 
+  // 4) Fallback: rescue any stranded parties into any eligible table that still
+  //    has room (relaxing group cohesion), so we never leave a party out when
+  //    seats genuinely exist. Reserved/sweetheart constraints still apply.
+  if (unseated.length > 0) {
+    const stranded = [...unseated];
+    unseated.length = 0;
+    for (const pid of stranded) {
+      const party = partyById.get(pid);
+      if (!party) continue;
+      const table = candidateTables(party.groupId)
+        .filter((t) => remaining(t) >= party.size)
+        .sort((a, b) => remaining(b) - remaining(a) || a.id.localeCompare(b.id))[0];
+      if (table) place(party, table);
+      else unseated.push(pid);
+    }
+  }
+
   if (unseated.length) {
     const seats = unseated.reduce((s, id) => s + (partyById.get(id)?.size ?? 0), 0);
     warnings.push(
