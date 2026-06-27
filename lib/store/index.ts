@@ -2,15 +2,33 @@ import { PlanDoc } from "@/lib/types";
 import { StorageAdapter } from "./types";
 import { LocalAdapter } from "./local";
 import { KvAdapter } from "./kv";
+import { MemoryAdapter } from "./memory";
 import { buildSeedPlan } from "@/lib/seed/plan";
 
 let adapter: StorageAdapter | null = null;
 
-/** Picks Vercel KV when configured, otherwise the local filesystem adapter. */
+/**
+ * Picks a storage backend:
+ * - Vercel KV when configured (durable, shared) — preferred for production.
+ * - In-memory when running on Vercel without KV (serverless FS is read-only;
+ *   keeps the app working but data is not durable/shared until KV is added).
+ * - Local filesystem for dev.
+ */
 export function getAdapter(): StorageAdapter {
   if (adapter) return adapter;
   const hasKv = !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
-  adapter = hasKv ? new KvAdapter() : new LocalAdapter();
+  if (hasKv) {
+    adapter = new KvAdapter();
+  } else if (process.env.VERCEL) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[store] No KV configured — using in-memory storage. Data will NOT persist or be shared. Add a Redis/KV integration in Vercel for durable storage.",
+      );
+    }
+    adapter = new MemoryAdapter();
+  } else {
+    adapter = new LocalAdapter();
+  }
   return adapter;
 }
 
