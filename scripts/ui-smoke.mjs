@@ -37,6 +37,16 @@ try {
   await clickBtn(/auto-fill/i);
   await page.waitForTimeout(1600);
   await shot("02-autofill");
+  // Persistence across a poll: the seated count must NOT revert after the
+  // background refresh interval (catches stale-read clobbering).
+  const seatedRe = /(\d+)\/(\d+) seated/;
+  const before = (await page.getByText(seatedRe).first().innerText()).match(seatedRe);
+  await page.waitForTimeout(7000);
+  const after = (await page.getByText(seatedRe).first().innerText()).match(seatedRe);
+  console.log(`SEATED_BEFORE=${before?.[1]} SEATED_AFTER=${after?.[1]}`);
+  if (after && before && Number(after[1]) < Number(before[1])) {
+    errors.push(`persistence regressed: seated dropped ${before[1]} -> ${after[1]} after poll`);
+  }
 } catch (e) {
   errors.push("autofill step: " + e.message);
 }

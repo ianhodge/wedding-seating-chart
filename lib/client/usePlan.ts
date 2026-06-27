@@ -1,56 +1,75 @@
 "use client";
 
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import { PlanDoc } from "@/lib/types";
 
 const fetcher = (url: string) =>
-  fetch(url).then((r) => {
+  fetch(url, { cache: "no-store" }).then((r) => {
     if (!r.ok) throw new Error(`Request failed: ${r.status}`);
     return r.json() as Promise<PlanDoc>;
   });
 
 /**
- * Loads a plan by id and provides an optimistic `save`. Polls every few seconds
- * so collaborators (e.g. the mother-in-law) see each other's edits. On a version
- * conflict the server's current doc is adopted and returned so callers can
- * re-apply their change against fresh state.
+ * Loads a plan by id and provides an optimistic `save`.
+ *
+ * Persistence note: the durable store (Vercel Blob) is eventually consistent, so
+ * a background poll can briefly return an OLDER version than what we just saved.
+ * To stop that from clobbering local edits, we keep a version-guarded copy in
+ * React state: a polled doc replaces it only when at least as new (by
+ * `version`), and reads are ignored entirely while a save is in flight.
+ * Genuinely newer updates (e.g. from another collaborator) still flow in.
  */
 export function usePlan(planId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR<PlanDoc>(
+  const [plan, setPlan] = useState<PlanDoc | undefined>(undefined);
+  const savingRef = useRef(false);
+
+  const { error, isLoading, mutate } = useSWR<PlanDoc>(
     planId ? `/api/plan/${planId}` : null,
     fetcher,
-    { refreshInterval: 5000, revalidateOnFocus: true, dedupingInterval: 1000 },
+    {
+      refreshInterval: 5000,
+      revalidateOnFocus: true,
+      dedupingInterval: 1000,
+      onSuccess: (incoming) => {
+        // Ignore any read that lands while we're saving, and never downgrade
+        // to an older version (eventual-consistency / CDN-cached reads).
+        if (savingRef.current) return;
+        setPlan((cur) =>
+          !cur ||
+          cur.planId !== incoming.planId ||
+          incoming.version >= cur.version
+            ? incoming
+            : cur,
+        );
+      },
+    },
   );
 
   async function save(next: PlanDoc): Promise<PlanDoc> {
-    mutate(next, false); // optimistic
-    let res: Response;
+    savingRef.current = true;
+    setPlan(next); // optimistic: local is the source of truth
     try {
-      res = await fetch(`/api/plan/${next.planId}`, {
+      const res = await fetch(`/api/plan/${next.planId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
       });
-    } catch (err) {
-      // Network failure: re-fetch authoritative state and surface the error.
-      await mutate();
-      throw err;
+      if (res.status === 409) {
+        const { current } = (await res.json()) as { current: PlanDoc };
+        setPlan(current); // server is genuinely ahead; adopt it
+        return current;
+      }
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+      const saved = (await res.json()) as PlanDoc;
+      setPlan(saved);
+      return saved;
+    } finally {
+      savingRef.current = false;
     }
-    if (res.status === 409) {
-      const { current } = (await res.json()) as { current: PlanDoc };
-      mutate(current, false); // adopt server's version for 409 reconciliation
-      return current;
-    }
-    if (!res.ok) {
-      await mutate();
-      throw new Error(`Save failed: ${res.status}`);
-    }
-    const saved = (await res.json()) as PlanDoc;
-    mutate(saved, false);
-    return saved;
   }
 
-  return { plan: data, error, isLoading, mutate, save };
+  return { plan, error, isLoading: isLoading && !plan, mutate, save };
 }
 
 /**
