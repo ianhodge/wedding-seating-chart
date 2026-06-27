@@ -17,20 +17,12 @@ export default function TableNode({
   table,
   selected,
   onSelect,
-  showNames,
 }: {
   table: Table;
   selected: boolean;
   onSelect: (id: string) => void;
-  showNames: boolean;
 }) {
   const { plan, scenario, groupById, occupancy } = usePlanCtx();
-
-  const firstNamesOf = (partyId: string) =>
-    plan.guests
-      .filter((g) => g.partyId === partyId && g.attending)
-      .map((g) => g.firstName)
-      .join(" & ");
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
 
   const used = occupancy[table.id] || 0;
@@ -114,39 +106,6 @@ export default function TableNode({
           </span>
         )}
       </div>
-
-      {showNames && partiesHere.length > 0 && (
-        <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-0.5 w-[122px] -translate-x-1/2 space-y-px text-center">
-          {partiesHere.slice(0, 6).map((p) => (
-            <div
-              key={p.id}
-              className="truncate rounded bg-white/85 px-1 text-[8px] leading-tight text-foreground/80 shadow-sm"
-            >
-              {firstNamesOf(p.id)}
-            </div>
-          ))}
-          {partiesHere.length > 6 && (
-            <div className="text-[8px] font-semibold opacity-60">
-              +{partiesHere.length - 6} more
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Hover preview of occupants */}
-      {partiesHere.length > 0 && (
-        <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden w-44 -translate-x-1/2 rounded-lg border border-rose/30 bg-white p-2 text-left text-[11px] shadow-lg group-hover:block">
-          <p className="mb-1 font-semibold text-rose">{table.label}</p>
-          <ul className="space-y-0.5">
-            {partiesHere.map((p) => (
-              <li key={p.id} className="truncate">
-                {p.label}{" "}
-                <span className="opacity-60">({p.size})</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </button>
   );
 }

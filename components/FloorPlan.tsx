@@ -6,6 +6,7 @@ import { usePlanCtx } from "./PlanContext";
 import { setTableReservation } from "@/lib/plan/ops";
 import TableNode from "./TableNode";
 import PartyCard from "./PartyCard";
+import SeatMap, { type SeatPerson } from "./SeatMap";
 
 const FEATURE_STYLE: Record<
   VenueFeature["kind"],
@@ -21,7 +22,6 @@ const FEATURE_STYLE: Record<
 export default function FloorPlan() {
   const { plan } = usePlanCtx();
   const [selected, setSelected] = useState<string | null>(null);
-  const [showNames, setShowNames] = useState(false);
 
   const tables = plan.tables;
   const features = plan.features;
@@ -30,15 +30,9 @@ export default function FloorPlan() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold">🗺️ Floor plan</h2>
-        <label className="flex cursor-pointer select-none items-center gap-1.5 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={showNames}
-            onChange={(e) => setShowNames(e.target.checked)}
-            className="accent-rose"
-          />
-          Show names
-        </label>
+        <span className="text-xs italic opacity-60">
+          Tap a table to see its seating
+        </span>
       </div>
       <div className="overflow-x-auto rounded-2xl border-2 border-rose/20 bg-white/70 p-2 pb-8 shadow-inner">
         <div
@@ -75,7 +69,6 @@ export default function FloorPlan() {
               key={t.id}
               table={t}
               selected={selected === t.id}
-              showNames={showNames}
               onSelect={(id) => setSelected((cur) => (cur === id ? null : id))}
             />
           ))}
@@ -108,6 +101,17 @@ function TableDetails({
     ? groupById.get(table.reservedForGroupId)
     : null;
   const placeholderGroups = plan.groups.filter((g) => g.isPlaceholder);
+
+  const people: SeatPerson[] = partiesHere.flatMap((p) => {
+    const color = groupById.get(p.groupId)?.color ?? "#e6549b";
+    return plan.guests
+      .filter((g) => g.partyId === p.id && g.attending)
+      .map((g) => ({
+        id: g.id,
+        name: g.firstName + (g.lastName ? ` ${g.lastName[0]}.` : ""),
+        color,
+      }));
+  });
 
   return (
     <section className="rounded-2xl border-2 border-plum/30 bg-white/80 p-4 shadow-md">
@@ -153,7 +157,16 @@ function TableDetails({
         </div>
       )}
 
+      {partiesHere.length > 0 && (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-rose/15 bg-white/60 p-3">
+          <SeatMap table={table} people={people} />
+        </div>
+      )}
+
       <div className="mt-3">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide opacity-60">
+          Parties (drag to move or unseat)
+        </p>
         {partiesHere.length === 0 ? (
           <p className="text-sm italic opacity-60">
             No one seated yet — drag a party here! 💃🕺

@@ -69,12 +69,17 @@ try {
   errors.push("guests step: " + e.message);
 }
 
-try {
-  await page.getByText(/^T7$/).first().click();
-  await page.waitForTimeout(500);
-  await shot("05-table-detail");
-} catch (e) {
-  errors.push("table-detail step: " + e.message);
+for (const [tid, name] of [
+  ["T11", "05-table-round"],
+  ["T7", "05-table-long"],
+]) {
+  try {
+    await page.getByText(new RegExp(`^${tid}$`)).first().click();
+    await page.waitForTimeout(500);
+    await shot(name);
+  } catch (e) {
+    errors.push(`${tid} detail step: ` + e.message);
+  }
 }
 
 try {
