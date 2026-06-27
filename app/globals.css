@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff7fb;
+  --foreground: #3a2233;
+  --blush: #ffd1e8;
+  --rose: #e6549b;
+  --gold: #f4b23b;
+  --plum: #6c5ce7;
+  --mint: #6fe7c2;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-blush: var(--blush);
+  --color-rose: var(--rose);
+  --color-gold: var(--gold);
+  --color-plum: var(--plum);
+  --color-mint: var(--mint);
+  --font-script: var(--font-script);
+  --font-serif: var(--font-serif);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 18% 8%, #ffe6f3 0, transparent 42%),
+    radial-gradient(circle at 82% 0%, #fff0d6 0, transparent 38%),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-script {
+  font-family: var(--font-script), cursive;
+}
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
 }

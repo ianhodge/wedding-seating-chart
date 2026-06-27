@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Matt & Ian — Wedding Seating Chart 💍
 
-## Getting Started
+A campy, wedding-themed web app to plan our reception seating: a floor-plan
+visualizer with drag-and-drop, a smart auto-fill, group/subgroup splitting,
+reserved placeholder tables for the in-law-managed groups, and shareable,
+collaboratively-editable plans.
 
-First, run the development server:
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev   # http://localhost:3000 — a ?plan=<id> is created automatically
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+No database is needed for local dev: plans are saved as JSON under `.data/`
+(gitignored). Production uses Vercel KV automatically when configured.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` — dev server
+- `npm run build` / `npm start` — production build / serve
+- `npm run lint` — ESLint
+- `npm run typecheck` — `tsc --noEmit`
+- `npm test` — Vitest
 
-## Learn More
+## Persistence & sharing
 
-To learn more about Next.js, take a look at the following resources:
+- A plan is one JSON document keyed by an unguessable `planId` (URL `?plan=<id>`).
+- `StorageAdapter` (`lib/store/types.ts`) has two implementations:
+  - `LocalAdapter` — dev; files in `.data/plans/`.
+  - `KvAdapter` — prod; Vercel KV, used automatically when `KV_REST_API_URL`
+    and `KV_REST_API_TOKEN` are present.
+- API: `GET`/`PUT /api/plan/:planId`, `POST /api/plan` (new id). Optimistic
+  concurrency via a `version` field; the client polls every few seconds so
+  collaborators see each other's edits.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy (Vercel)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push to GitHub (public).
+2. Import the repo at vercel.com → New Project.
+3. Add a Redis store: Project → Storage → Create → (Upstash) Redis, then connect
+   it. Vercel injects `KV_REST_API_URL` / `KV_REST_API_TOKEN`.
+4. Deploy, then share the URL (with `?plan=<id>`).
 
-## Deploy on Vercel
+## Data model (`lib/types.ts`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Guest** — one attending person.
+- **Party** — the keep-together unit (couple/family). Never split across tables.
+- **Group** — the 18 categories; flags `isPlaceholder` (in-law managed) and
+  `isCouple` (Matt + Ian → sweetheart).
+- **Subgroup** — a named subset of a group, for intentional splits.
+- **Table** — `round` / `long` / `sweetheart`, `capacity`, `x`/`y` (0..100),
+  optional `reservedForGroupId`.
+- **Scenario** — a named arrangement: `partyId → { tableId, locked }`.
+- **PlanDoc** — the whole document (guests, parties, groups, subgroups, tables,
+  features, scenarios, `version`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Code map
+
+- `lib/types.ts` — shared data model (stable contract).
+- `lib/seed/*` — parsed guest list + seed builder.
+- `lib/venue/layout.ts` — table positions / capacities + venue features.
+- `lib/seating/index.ts` — auto-fill engine: `autoFill`, `balancedPartition`,
+  `splitDownMiddle`.
+- `lib/store/*` — persistence adapters + factory.
+- `lib/plan/ops.ts` — pure `PlanDoc` mutation helpers.
+- `lib/client/usePlan.ts` — SWR load/save hook.
+- `app/api/plan/*` — REST endpoints.
+- `app/page.tsx`, `components/*` — UI (floor plan, drag-and-drop).
+
+Built with Next.js, React, Tailwind CSS, dnd-kit, and SWR.
