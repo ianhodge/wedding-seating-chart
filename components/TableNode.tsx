@@ -13,6 +13,18 @@ function nodeSize(table: Table): { w: number; h: number; radius: string } {
     : { w: 62, h: 62, radius: "9999px" };
 }
 
+function Chip({ name, color }: { name: string; color: string }) {
+  return (
+    <span className="flex items-center gap-[2px]">
+      <span
+        className="inline-block h-[5px] w-[5px] shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      {name}
+    </span>
+  );
+}
+
 export default function TableNode({
   table,
   selected,
@@ -33,16 +45,18 @@ export default function TableNode({
   const partiesHere = plan.parties.filter(
     (p) => scenario.assignments[p.id]?.tableId === table.id,
   );
-  const colors = [
-    ...new Set(
-      partiesHere
-        .map((p) => groupById.get(p.groupId)?.color)
-        .filter((c): c is string => Boolean(c)),
-    ),
-  ].slice(0, 6);
   const reservedGroup = table.reservedForGroupId
     ? groupById.get(table.reservedForGroupId)
     : null;
+
+  // Seated guests (first names, in party order) shown around the table.
+  const seatPeople = partiesHere.flatMap((p) => {
+    const color = groupById.get(p.groupId)?.color ?? "#e6549b";
+    return plan.guests
+      .filter((g) => g.partyId === p.id && g.attending)
+      .map((g) => ({ id: g.id, name: g.firstName, color }));
+  });
+  const isLong = table.shape === "long";
 
   const bg = table.isSweetheart
     ? "var(--rose)"
@@ -61,6 +75,58 @@ export default function TableNode({
       style={{ left: `${table.x}%`, top: `${table.y}%` }}
       aria-label={`${table.label}, ${used} of ${table.capacity} seats`}
     >
+      {/* Names around the table (a ring for round tables) */}
+      {seatPeople.length > 0 && !isLong && (
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 z-20"
+          style={{ width: 0, height: 0 }}
+        >
+          {seatPeople.map((s, i) => {
+            const m = seatPeople.length;
+            const ang = ((-90 + (i * 360) / m) * Math.PI) / 180;
+            const r = w / 2 + 11;
+            const x = Math.cos(ang) * r;
+            const y = Math.sin(ang) * r;
+            return (
+              <span
+                key={s.id}
+                className="absolute whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+                }}
+              >
+                <Chip name={s.name} color={s.color} />
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {/* Names in two facing rows for long tables */}
+      {seatPeople.length > 0 && isLong && (
+        <>
+          <div
+            className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+            style={{ bottom: "calc(100% + 2px)" }}
+          >
+            {seatPeople
+              .filter((_, i) => i % 2 === 0)
+              .map((s) => (
+                <Chip key={s.id} name={s.name} color={s.color} />
+              ))}
+          </div>
+          <div
+            className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+            style={{ top: "calc(100% + 2px)" }}
+          >
+            {seatPeople
+              .filter((_, i) => i % 2 === 1)
+              .map((s) => (
+                <Chip key={s.id} name={s.name} color={s.color} />
+              ))}
+          </div>
+        </>
+      )}
+
       <div
         className={`relative flex flex-col items-center justify-center border-2 shadow-sm transition ${
           isOver
@@ -94,17 +160,6 @@ export default function TableNode({
         >
           {used}/{table.capacity}
         </span>
-        {colors.length > 0 && (
-          <span className="mt-0.5 flex max-w-[90%] flex-wrap justify-center gap-0.5">
-            {colors.map((c) => (
-              <span
-                key={c}
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </span>
-        )}
       </div>
     </button>
   );
