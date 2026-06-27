@@ -6,6 +6,7 @@ import {
   PartyId,
   ScenarioId,
   GroupId,
+  TableId,
 } from "@/lib/types";
 
 export interface AutoFillOptions {
@@ -27,15 +28,22 @@ export interface AutoFillResult {
 
 const sizeOf = (parties: Party[]) => parties.reduce((s, p) => s + p.size, 0);
 
+/** Deterministic ordering of parties: largest first, ties broken by id. */
+const bySizeDescThenId = (a: Party, b: Party) =>
+  b.size - a.size || a.id.localeCompare(b.id);
+
 /**
  * Split parties into balanced chunks, each with total size <= maxPerChunk,
  * keeping every party intact. Largest-first into the least-loaded bin.
+ *
+ * Retained as a stable utility export; auto-fill itself prefers the recursive
+ * `splitDownMiddle` strategy below.
  */
 export function balancedPartition(parties: Party[], maxPerChunk: number): Party[][] {
   if (parties.length === 0) return [];
   const total = sizeOf(parties);
   let k = Math.max(1, Math.ceil(total / Math.max(1, maxPerChunk)));
-  const sorted = [...parties].sort((a, b) => b.size - a.size);
+  const sorted = [...parties].sort(bySizeDescThenId);
 
   while (k <= parties.length) {
     const bins = Array.from({ length: k }, () => ({ items: [] as Party[], load: 0 }));
@@ -60,10 +68,11 @@ export function balancedPartition(parties: Party[], maxPerChunk: number): Party[
 
 /**
  * Split parties "down the middle" into two halves balanced by headcount,
- * keeping parties intact. Used by the manual "split evenly" helper.
+ * keeping parties intact. Largest-first into the lighter half so the two
+ * sides stay as close in size as possible. Deterministic.
  */
 export function splitDownMiddle(parties: Party[]): [Party[], Party[]] {
-  const sorted = [...parties].sort((a, b) => b.size - a.size);
+  const sorted = [...parties].sort(bySizeDescThenId);
   const left: Party[] = [];
   const right: Party[] = [];
   let ll = 0;
@@ -81,9 +90,16 @@ export function splitDownMiddle(parties: Party[]): [Party[], Party[]] {
 }
 
 /**
- * Greedy auto-fill: keep locked/existing placements, then seat each group
- * (or its subgroups) together where possible, splitting down the middle when
- * a unit can't fit a single table. Placeholder groups are skipped by default.
+ * Greedy, deterministic auto-fill.
+ *
+ * Keeps locked/existing placements, then seats each group (or each of its
+ * subgroups) as a unit. A unit is placed whole when it fits a single table;
+ * otherwise it is split DOWN THE MIDDLE into balanced halves (parties intact)
+ * and each half is seated recursively until every chunk fits. Constraints:
+ * the sweetheart table is never used; placeholder groups only sit at their
+ * reserved tables (and only when `fillPlaceholders`); non-placeholder groups
+ * avoid reserved tables. When a unit is split, the chunks prefer tables that
+ * already host the group and tables near each other (x/y proximity).
  */
 export function autoFill(
   doc: PlanDoc,
@@ -100,18 +116,22 @@ export function autoFill(
 
   const partyById = new Map(doc.parties.map((p) => [p.id, p]));
   const groupById = new Map(doc.groups.map((g) => [g.id, g]));
+  const tableById = new Map(doc.tables.map((t) => [t.id, t]));
 
+  // 1) Seed the result from existing assignments we want to preserve.
   const assignments: Record<PartyId, Assignment> = {};
   if (scenario) {
     for (const [pid, a] of Object.entries(scenario.assignments)) {
       if (!partyById.has(pid)) continue;
+      if (!tableById.has(a.tableId)) continue;
       const keep = a.locked ? respectLocked : keepExisting;
       if (keep) assignments[pid] = { ...a };
     }
   }
 
-  const occ = new Map<string, number>();
-  const groupsAtTable = new Map<string, Set<GroupId>>();
+  // 2) Track live occupancy + which groups already sit at each table.
+  const occ = new Map<TableId, number>();
+  const groupsAtTable = new Map<TableId, Set<GroupId>>();
   for (const t of doc.tables) {
     occ.set(t.id, 0);
     groupsAtTable.set(t.id, new Set());
@@ -119,11 +139,11 @@ export function autoFill(
   for (const [pid, a] of Object.entries(assignments)) {
     const p = partyById.get(pid);
     if (!p) continue;
-    occ.set(a.tableId, (occ.get(a.tableId) || 0) + p.size);
+    occ.set(a.tableId, (occ.get(a.tableId) ?? 0) + p.size);
     groupsAtTable.get(a.tableId)?.add(p.groupId);
   }
 
-  const remaining = (t: Table) => t.capacity - (occ.get(t.id) || 0);
+  const remaining = (t: Table) => t.capacity - (occ.get(t.id) ?? 0);
 
   const canPlace = (t: Table, groupId: GroupId): boolean => {
     if (t.isSweetheart) return false;
@@ -136,52 +156,96 @@ export function autoFill(
   const candidateTables = (groupId: GroupId) =>
     doc.tables.filter((t) => canPlace(t, groupId));
 
+  // Distance from a table to the centroid of tables already used by a unit.
+  const distanceToUsed = (t: Table, used: Set<TableId>): number => {
+    if (used.size === 0) return 0;
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const id of used) {
+      const ut = tableById.get(id);
+      if (!ut) continue;
+      cx += ut.x;
+      cy += ut.y;
+      n += 1;
+    }
+    if (n === 0) return 0;
+    cx /= n;
+    cy /= n;
+    const dx = t.x - cx;
+    const dy = t.y - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  /**
+   * Pick the best table for a unit/chunk among tables that already fit it:
+   * prefer a table already hosting the group, then proximity to the rest of
+   * the unit, then best-fit (smallest sufficient remaining), then id.
+   */
+  const chooseTable = (
+    fitting: Table[],
+    groupId: GroupId,
+    used: Set<TableId>,
+  ): Table | undefined => {
+    if (fitting.length === 0) return undefined;
+    return [...fitting].sort((a, b) => {
+      const ag = groupsAtTable.get(a.id)?.has(groupId) ? 1 : 0;
+      const bg = groupsAtTable.get(b.id)?.has(groupId) ? 1 : 0;
+      if (ag !== bg) return bg - ag;
+      const ad = distanceToUsed(a, used);
+      const bd = distanceToUsed(b, used);
+      if (ad !== bd) return ad - bd;
+      const ra = remaining(a);
+      const rb = remaining(b);
+      if (ra !== rb) return ra - rb;
+      return a.id.localeCompare(b.id);
+    })[0];
+  };
+
   const place = (party: Party, table: Table) => {
     assignments[party.id] = { tableId: table.id };
-    occ.set(table.id, (occ.get(table.id) || 0) + party.size);
+    occ.set(table.id, (occ.get(table.id) ?? 0) + party.size);
     groupsAtTable.get(table.id)?.add(party.groupId);
   };
 
-  const seatUnit = (unit: Party[], groupId: GroupId) => {
+  /**
+   * Seat a unit of parties, splitting down the middle recursively when it
+   * cannot fit a single table. `used` accumulates the tables this unit lands
+   * on so split chunks stay near each other.
+   */
+  const seatUnit = (unit: Party[], groupId: GroupId, used: Set<TableId>) => {
+    if (unit.length === 0) return;
     const unitSize = sizeOf(unit);
-    const cands = candidateTables(groupId);
 
-    // 1) Whole unit at one table — prefer a table already hosting this group,
-    //    then the smallest table that still fits (best-fit).
-    const fitting = cands
-      .filter((t) => remaining(t) >= unitSize)
-      .sort((a, b) => {
-        const ag = groupsAtTable.get(a.id)?.has(groupId) ? 1 : 0;
-        const bg = groupsAtTable.get(b.id)?.has(groupId) ? 1 : 0;
-        if (ag !== bg) return bg - ag;
-        return remaining(a) - remaining(b);
-      });
-    if (fitting.length > 0) {
-      for (const p of unit) place(p, fitting[0]);
+    const fitting = candidateTables(groupId).filter((t) => remaining(t) >= unitSize);
+    const table = chooseTable(fitting, groupId, used);
+    if (table) {
+      for (const p of unit) place(p, table);
+      used.add(table.id);
       return;
     }
 
-    // 2) Must split — partition by the largest available capacity, then best-fit each chunk.
-    const maxCap = Math.max(0, ...cands.map((t) => remaining(t)));
-    if (maxCap <= 0) {
-      unit.forEach((p) => unseated.push(p.id));
+    // A single party can't be split — it simply doesn't fit anywhere.
+    if (unit.length === 1) {
+      unseated.push(unit[0].id);
       return;
     }
-    const chunks = balancedPartition(unit, maxCap);
-    for (const chunk of chunks) {
-      const size = sizeOf(chunk);
-      const t = candidateTables(groupId)
-        .filter((tt) => remaining(tt) >= size)
-        .sort((a, b) => remaining(a) - remaining(b))[0];
-      if (!t) {
-        chunk.forEach((p) => unseated.push(p.id));
-        continue;
-      }
-      for (const p of chunk) place(p, t);
+
+    // Split down the middle and recurse on each half.
+    const [left, right] = splitDownMiddle(unit);
+    if (left.length === 0 || right.length === 0) {
+      // Degenerate split (shouldn't happen for length >= 2); seat individually.
+      for (const p of unit) seatUnit([p], groupId, used);
+      return;
     }
+    seatUnit(left, groupId, used);
+    seatUnit(right, groupId, used);
   };
 
-  const orderedGroups = [...doc.groups].sort((a, b) => a.order - b.order);
+  // 3) Seat groups in a stable order, treating each subgroup as its own unit.
+  const orderedGroups = [...doc.groups].sort(
+    (a, b) => a.order - b.order || a.id.localeCompare(b.id),
+  );
   for (const g of orderedGroups) {
     if (g.isCouple) continue;
     if (g.isPlaceholder && !fillPlaceholders) continue;
@@ -193,7 +257,7 @@ export function autoFill(
 
     const subgroups = doc.subgroups
       .filter((s) => s.groupId === g.id)
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
     const units: Party[][] = [];
     if (subgroups.length > 0) {
@@ -207,11 +271,18 @@ export function autoFill(
       units.push(groupParties);
     }
 
-    for (const unit of units) seatUnit(unit, g.id);
+    // A shared "used" set per group keeps its subgroups clustered together.
+    const used = new Set<TableId>();
+    for (const unit of units) seatUnit(unit, g.id, used);
   }
 
   if (unseated.length) {
-    warnings.push(`${unseated.length} parties couldn't be seated — not enough open seats.`);
+    const seats = unseated.reduce((s, id) => s + (partyById.get(id)?.size ?? 0), 0);
+    warnings.push(
+      `${unseated.length} ${
+        unseated.length === 1 ? "party" : "parties"
+      } (${seats} ${seats === 1 ? "guest" : "guests"}) couldn't be seated — not enough open seats.`,
+    );
   }
   return { assignments, unseated, warnings };
 }
