@@ -8,8 +8,15 @@ import { StorageAdapter, PutResult } from "./types";
 // concurrency via the doc `version` (Blob has no CAS).
 const pathFor = (planId: string) => `plans/${encodeURIComponent(planId)}.json`;
 
+// Per-instance fallback used when the Blob store is unavailable (e.g. suspended
+// or rate-limited) so the app keeps loading/working instead of returning 500s.
+// Not shared across serverless instances; durable writes resume automatically
+// once Blob is healthy again.
+const fallback = new Map<string, PlanDoc>();
+
 export class BlobAdapter implements StorageAdapter {
   async get(planId: string): Promise<PlanDoc | null> {
+    if (fallback.has(planId)) return fallback.get(planId) ?? null;
     const path = pathFor(planId);
     try {
       const { blobs } = await list({ prefix: path, limit: 1 });
@@ -26,16 +33,26 @@ export class BlobAdapter implements StorageAdapter {
 
   async put(doc: PlanDoc, expectedVersion?: number): Promise<PutResult> {
     const current = await this.get(doc.planId);
-    if (current) {
-      if (expectedVersion !== undefined && current.version !== expectedVersion) {
-        return { ok: false, conflict: true, current };
-      }
-      const next: PlanDoc = { ...doc, version: current.version + 1, updatedAt: Date.now() };
-      await this.write(next);
-      return { ok: true, doc: next };
+    if (
+      current &&
+      expectedVersion !== undefined &&
+      current.version !== expectedVersion
+    ) {
+      return { ok: false, conflict: true, current };
     }
-    const next: PlanDoc = { ...doc, version: doc.version || 1, updatedAt: Date.now() };
-    await this.write(next);
+    const next: PlanDoc = {
+      ...doc,
+      version: current ? current.version + 1 : doc.version || 1,
+      updatedAt: Date.now(),
+    };
+    try {
+      await this.write(next);
+      fallback.delete(doc.planId); // durable write succeeded
+    } catch {
+      // Durable store unavailable (e.g. suspended): keep working in-memory so
+      // the UI never gets stuck. Persistence resumes when Blob is restored.
+      fallback.set(doc.planId, next);
+    }
     return { ok: true, doc: next };
   }
 
