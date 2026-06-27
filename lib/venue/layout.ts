@@ -4,10 +4,10 @@ import { Table, VenueFeature } from "@/lib/types";
 // approximating the venue diagram. Tweak freely — geometry is pure config.
 //
 // Capacities (from the venue chart):
-//   8-seat round:  1, 2, 4, 5, 6, 9, 10, 15, 16, 19, 20
-//   12-seat:       11, 12, 13, 14, 17, 18
+//   8-seat round:  1, 2, 4, 5, 6, 9, 10, 11, 14, 15, 16, 19, 20
+//   12-seat (long): 12, 13, 17, 18
 //   16-seat (long): 3, 7, 8
-// Total = 208 seats (+ the 2-seat sweetheart table).
+// Total = 200 seats (+ the 2-seat sweetheart table).
 //
 // Placeholder reservations (movable in-app):
 //   Higgins Family Friends -> Table 17 ; Higgins Side -> Table 18
@@ -25,7 +25,7 @@ export const DEFAULT_TABLES: Table[] = [
   // Third row
   { id: "t16", label: "Table 16", shape: "round", capacity: 8, x: 40, y: 27 },
   { id: "t15", label: "Table 15", shape: "round", capacity: 8, x: 53, y: 26 },
-  { id: "t14", label: "Table 14", shape: "round", capacity: 12, x: 68, y: 25 },
+  { id: "t14", label: "Table 14", shape: "round", capacity: 8, x: 68, y: 25 },
 
   // Long 12-tops just right of the dance floor (13 above 12)
   { id: "t13", label: "Table 13", shape: "long", capacity: 12, x: 66, y: 36 },
@@ -34,7 +34,7 @@ export const DEFAULT_TABLES: Table[] = [
   // Mid round tables
   { id: "t9", label: "Table 9", shape: "round", capacity: 8, x: 43, y: 57 },
   { id: "t10", label: "Table 10", shape: "round", capacity: 8, x: 57, y: 57 },
-  { id: "t11", label: "Table 11", shape: "round", capacity: 12, x: 76, y: 56 },
+  { id: "t11", label: "Table 11", shape: "round", capacity: 8, x: 76, y: 56 },
 
   // Honeymoon (sweetheart) table — all the way to the right
   { id: "sweetheart", label: "Sweetheart", shape: "sweetheart", capacity: 2, x: 89, y: 42, isSweetheart: true },

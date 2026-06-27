@@ -48,10 +48,10 @@ describe("seed plan", () => {
     expect(total).toBe(154);
   });
 
-  it("has 208 seats across non-sweetheart tables", () => {
+  it("has 200 seats across non-sweetheart tables", () => {
     const seats = plan.tables
       .filter((t) => !t.isSweetheart)
       .reduce((s, t) => s + t.capacity, 0);
-    expect(seats).toBe(208);
+    expect(seats).toBe(200);
   });
 });
