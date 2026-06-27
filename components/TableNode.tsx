@@ -71,14 +71,16 @@ export default function TableNode({
       ref={setNodeRef}
       type="button"
       onClick={() => onSelect(table.id)}
-      className="group absolute z-10 -translate-x-1/2 -translate-y-1/2"
+      className={`group absolute -translate-x-1/2 -translate-y-1/2 ${
+        selected || isOver ? "z-30" : ""
+      }`}
       style={{ left: `${table.x}%`, top: `${table.y}%` }}
       aria-label={`${table.label}, ${used} of ${table.capacity} seats`}
     >
       {/* Names around the table (a ring for round tables) */}
       {seatPeople.length > 0 && !isLong && (
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 z-20"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-30"
           style={{ width: 0, height: 0 }}
         >
           {seatPeople.map((s, i) => {
@@ -90,7 +92,7 @@ export default function TableNode({
             return (
               <span
                 key={s.id}
-                className="absolute whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+                className="absolute whitespace-nowrap text-[8px] font-medium leading-none text-foreground/90"
                 style={{
                   transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
                 }}
@@ -105,7 +107,7 @@ export default function TableNode({
       {seatPeople.length > 0 && isLong && (
         <>
           <div
-            className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+            className="pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[8px] font-medium leading-none text-foreground/90"
             style={{ bottom: "calc(100% + 2px)" }}
           >
             {seatPeople
@@ -115,7 +117,7 @@ export default function TableNode({
               ))}
           </div>
           <div
-            className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[7px] font-medium leading-none text-foreground/90"
+            className="pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 gap-1 whitespace-nowrap text-[8px] font-medium leading-none text-foreground/90"
             style={{ top: "calc(100% + 2px)" }}
           >
             {seatPeople

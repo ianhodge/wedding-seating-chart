@@ -36,7 +36,7 @@ export default function FloorPlan() {
       </div>
       <div className="overflow-x-auto rounded-2xl border-2 border-rose/20 bg-white/70 p-4 shadow-inner">
         <div
-          className="relative mx-auto aspect-[1/1] w-full min-w-[1040px]"
+          className="relative mx-auto aspect-[1/1] w-full min-w-[1400px]"
           style={{
             background:
               "repeating-linear-gradient(45deg, #fff 0 18px, #fff7fb 18px 36px)",
